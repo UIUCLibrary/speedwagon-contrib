@@ -1,15 +1,30 @@
 import os.path
-from typing import List, Mapping, Sequence, Any, Optional, TypeVar
+from typing import List, Mapping, Any, Optional, TypedDict, Dict, Union
 
 import speedwagon
 from speedwagon import workflow
 from speedwagon.tasks import Result, TaskBuilder
 from datetime import date
+
 from . import file_checker
 
-_T = TypeVar("_T")
 
-def contains_required_folders(value, expected_folder) -> bool:
+UserArgs = TypedDict("UserArgs", {"Report File": str, "Input Directory": str, "File Type": str})
+JobArgs = TypedDict(
+    "JobArgs",
+    {
+        "access_directory": str,
+        "pres_directory": str,
+        "directories": str,
+        "report_location": str,
+        "file_type": str,
+    }
+)
+ResultArgs = TypedDict("ResultArgs", {"errors": List[str]})
+
+def contains_required_folders(value: Union[str, None], expected_folder: str) -> bool:
+    if value is None:
+        return False
     return os.path.exists(os.path.join(value, expected_folder))
 
 
@@ -20,12 +35,12 @@ def _get_default_report_location() -> str:
     return os.path.join(desktop_path, report_title)
 
 
-def is_valid_location_for_log(value) -> bool:
+def is_valid_location_for_log(value: str) -> bool:
     dir_path = os.path.dirname(value)
     return os.path.exists(dir_path)
 
 
-class FileCheckerWorkflow(speedwagon.Workflow):
+class FileCheckerWorkflow(speedwagon.Workflow[UserArgs]):
     name = "File Checker"
     description = """This program checks that files are consistent with DS conventions for archival and cataloged collections:
     - All files are either .tifs or .jp2s
@@ -45,13 +60,16 @@ Settings:
 Created by Anna Smith
 """
 
-    def job_options(self):
+    def job_options(self) -> List[workflow.AbsOutputOptionDataType]:
         input_directory = speedwagon.workflow.DirectorySelect(
             "Input Directory", required=True
         )
         input_directory.add_validation(
             speedwagon.validators.CustomValidation(
-                query=lambda value, _: os.path.exists(value) and os.path.isdir(value),
+                query=lambda value, _: (
+                        value is not None and
+                        (os.path.exists(value) and os.path.isdir(value))
+                ),
                 failure_message_function=lambda *_: "Not a valid directory.",
             )
         )
@@ -88,9 +106,10 @@ Created by Anna Smith
         report_file.value = _get_default_report_location()
         report_file.add_validation(
             speedwagon.validators.CustomValidation(
-                query=lambda value, _: is_valid_location_for_log(value),
+                query=lambda value, _: value is not None and
+                                       is_valid_location_for_log(value),
                 failure_message_function=lambda value: (
-                    f"invalid file location {os.path.dirname(value)}"
+                    f"invalid file location {os.path.dirname(value) if value else ''}"
                 ),
             )
         )
@@ -103,8 +122,8 @@ Created by Anna Smith
         self,
         initial_results: List[Result],
         additional_data: Mapping[str, Any],
-        user_args: _T,
-    ) -> Sequence[Mapping[str, object]]:
+        user_args: UserArgs,
+    ) -> List[JobArgs]:
         access_directory, directories, pres_directory, _ = file_checker.get_directories(
             user_args["Input Directory"]
         )
@@ -118,7 +137,7 @@ Created by Anna Smith
             }
         ]
 
-    def generate_report(cls, results: List[Result], user_args: _T) -> Optional[str]:
+    def generate_report(cls, results: List[Result], user_args: UserArgs) -> Optional[str]:
         total_errors = len(results[0].data["errors"])
         report_location = user_args["Report File"]
 
@@ -127,7 +146,7 @@ Created by Anna Smith
             f"Detailed report saved to {report_location}"
         )
 
-    def create_new_task(self, task_builder: TaskBuilder, job_args) -> None:
+    def create_new_task(self, task_builder: TaskBuilder, job_args: JobArgs) -> None:
         task_builder.add_subtask(
             check_files(
                 access_directory=job_args["access_directory"],
@@ -146,7 +165,7 @@ def check_files(
     pres_directory: str,
     report_location: str,
     file_type: str,
-) -> str:
+) -> Dict[str, str]:
     with open(report_location, "a") as outfile:
         file_checker.make_report_header(directories, outfile)
 
