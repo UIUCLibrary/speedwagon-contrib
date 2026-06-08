@@ -7,6 +7,19 @@ library(
             ]
         )
     )
+
+def getPypiConfig() {
+    retry(conditions: [agent()], count: 3) {
+        node(){
+            configFileProvider([configFile(fileId: 'pypi_config', variable: 'CONFIG_FILE')]) {
+                def config = readJSON( file: CONFIG_FILE)
+                return config['deployment']['indexes']
+            }
+        }
+    }
+}
+
+
 def createWindowUVConfig(){
     def scriptFile = "ci\\jenkins\\scripts\\new-uv-global-config.ps1"
     if(! fileExists(scriptFile)){
@@ -52,9 +65,12 @@ pipeline {
         booleanParam(name: 'INCLUDE_MACOS-ARM64', defaultValue: false, description: 'Include ARM(m1) architecture for Mac')
         booleanParam(name: 'INCLUDE_MACOS-X86_64', defaultValue: false, description: 'Include x86_64 architecture for Mac')
         booleanParam(name: 'INCLUDE_WINDOWS-X86_64', defaultValue: false, description: 'Include x86_64 architecture for Windows')
+        booleanParam(name: 'DEPLOY_PYPI', defaultValue: false, description: 'Deploy to pypi')
+        booleanParam(name: 'CREATE_GITHUB_RELEASE', defaultValue: false, description: 'Deploy to Github Release. Requires the current commit to be tagged. Note: This is experimental')
     }
     options {
         timeout(time: 1, unit: 'DAYS')
+        preserveStashes()
     }
     stages {
         stage('Checks') {
@@ -533,6 +549,168 @@ pipeline {
                                             ]
                                         )
                                     }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        stage('Deploy'){
+            when{
+                anyOf{
+                    equals expected: true, actual: params.DEPLOY_PYPI
+                    equals expected: true, actual: params.CREATE_GITHUB_RELEASE
+                }
+            }
+            parallel{
+                stage('Deploy to pypi') {
+                    environment{
+                        PIP_CACHE_DIR='/tmp/pipcache'
+                        UV_TOOL_DIR='/tmp/uvtools'
+                        UV_PYTHON_CACHE_DIR='/tmp/uvpython'
+                        UV_CACHE_DIR='/tmp/uvcache'
+                    }
+                    agent {
+                        docker{
+                            image 'ghcr.io/astral-sh/uv:debian'
+                            label 'docker && linux'
+                            args "--label=purpose=ci --label \"JOB_NAME=\$JOB_NAME\" --label \"absoluteUrl=${currentBuild.absoluteUrl}\" --label \"BUILD_NUMBER=${currentBuild.number}\" --mount source=uv_python_cache_dir,target=/tmp/uvpython"
+                        }
+                    }
+                    when{
+                        allOf{
+                            equals expected: true, actual: params.DEPLOY_PYPI
+                            equals expected: true, actual: params.BUILD_PACKAGES
+                        }
+                        beforeAgent true
+                        beforeInput true
+                    }
+                    options{
+                        retry(3)
+                    }
+                    input {
+                        message 'Upload to pypi server?'
+                        parameters {
+                            choice(
+                                choices: getPypiConfig(),
+                                description: 'Url to the pypi index to upload python packages.',
+                                name: 'SERVER_URL'
+                            )
+                        }
+                    }
+                    steps{
+                        unstash 'PYTHON_PACKAGES'
+                        withEnv(
+                            [
+                                "UV_PUBLISH_URL=${SERVER_URL}",
+                            ]
+                        ){
+                            withCredentials(
+                                [
+                                    usernamePassword(
+                                        credentialsId: 'jenkins-nexus',
+                                        passwordVariable: 'UV_PUBLISH_PASSWORD',
+                                        usernameVariable: 'UV_PUBLISH_USERNAME'
+                                    )
+                                ]
+                            ){
+                                sh(
+                                    label: 'Uploading to pypi',
+                                    script: 'uv publish dist/*'
+                                )
+                            }
+                        }
+                    }
+                    post{
+                        cleanup{
+                            cleanWs(
+                                deleteDirs: true,
+                                patterns: [
+                                        [pattern: 'dist/', type: 'INCLUDE']
+                                    ]
+                            )
+                        }
+                    }
+                }
+                stage('GitHub Release'){
+                    agent any
+                    when{
+                        beforeInput true
+                        beforeAgent true
+                        beforeOptions true
+                        allOf{
+                          equals expected: true, actual: params.CREATE_GITHUB_RELEASE
+                          tag '*'
+                        }
+                    }
+                    input {
+                        message 'Create GitHub Release'
+                        id 'GITHUB_DEPLOYMENT'
+                        parameters {
+                            credentials(
+                                credentialType: 'org.jenkinsci.plugins.plaincredentials.impl.StringCredentialsImpl',
+                                description: 'GitHub credential Id',
+                                name: 'GITHUB_CREDENTIALS_ID',
+                                required: true
+                            )
+                        }
+                    }
+                    environment{
+                        GITHUB_REPO='UIUCLibrary/speedwagon-contrib'
+                    }
+                    options{
+                        lock("${env.JOB_NAME}")
+                    }
+                    steps{
+                        script {
+                            def projectMetadata = readTOML( file: 'pyproject.toml')['project']
+                            withCredentials([string(credentialsId: GITHUB_CREDENTIALS_ID, variable: 'GITHUB_TOKEN')]) {
+                                def requestBody = JsonOutput.toJson([
+                                    tag_name: env.BRANCH_NAME,
+                                    name: "Version ${projectMetadata.version}",
+                                    generate_release_notes: false,
+                                    draft: false,
+                                    prerelease: false
+                                ])
+                                def createReleaseResponse = httpRequest(
+                                    httpMode: 'POST',
+                                    contentType: 'APPLICATION_JSON',
+                                    url: "https://api.github.com/repos/UIUCLibrary/speedwagon-contrib/releases",
+                                    customHeaders: [
+                                        [name: 'Authorization', value: "token ${GITHUB_TOKEN}"]
+                                    ],
+                                    requestBody: requestBody,
+                                    validResponseCodes: '201' // Expect a 201 Created status code
+                                    )
+                                if (params.BUILD_PACKAGES){
+                                    unstash 'PYTHON_PACKAGES'
+                                    def releaseData = readJSON text: createReleaseResponse.content
+                                    findFiles(glob: 'dist/*').each{
+                                        def uploadResponse = httpRequest(
+                                            url: "${releaseData.upload_url.replace('{?name,label}', '')}?name=${it.name}",
+                                            httpMode: 'POST',
+                                            uploadFile: it.path,
+                                            customHeaders: [[name: 'Authorization', value: "token ${GITHUB_TOKEN}"]],
+                                            wrapAsMultipart: false
+                                        )
+                                        if (uploadResponse.status >= 200 && uploadResponse.status < 300) {
+                                            echo "File uploaded successfully to GitHub release."
+                                        } else {
+                                            error "Failed to upload file: ${uploadResponse.status} - ${uploadResponse.content}"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    post{
+                        cleanup{
+                            script{
+                                if(isUnix()){
+                                    sh "${tool(name: 'Default', type: 'git')} clean -dfx"
+                                } else {
+                                    bat "${tool(name: 'Default', type: 'git')} clean -dfx"
                                 }
                             }
                         }
