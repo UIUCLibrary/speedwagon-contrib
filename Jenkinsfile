@@ -70,6 +70,7 @@ pipeline {
     }
     options {
         timeout(time: 1, unit: 'DAYS')
+        preserveStashes()
     }
     stages {
         stage('Checks') {
