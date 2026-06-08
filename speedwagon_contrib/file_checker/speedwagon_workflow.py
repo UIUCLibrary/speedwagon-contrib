@@ -10,9 +10,7 @@ from . import file_checker
 _T = TypeVar("_T")
 
 def contains_required_folders(value, expected_folder) -> bool:
-    if not os.path.exists(os.path.join(value, expected_folder)):
-        return False
-    return True
+    return os.path.exists(os.path.join(value, expected_folder))
 
 
 def _get_default_report_location() -> str:
