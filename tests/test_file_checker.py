@@ -95,13 +95,13 @@ def test_path_not_exists(tmp_path):
     empty_dir.mkdir()
     with pytest.raises(SystemExit) as e:
         file_checker.get_directories(empty_dir)
-    assert e.type == SystemExit
+    assert e.type is SystemExit
 
 
 def test_invalid_file_type(tmp_path):
     with pytest.raises(SystemExit) as e:
         file_checker.run_file_type_check('b')
-    assert e.type == SystemExit
+    assert e.type is SystemExit
 
 def test_valid_file_type(tmp_path):
     assert file_checker.run_file_type_check('Cataloged') == 'Cataloged'
