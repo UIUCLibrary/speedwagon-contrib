@@ -1,29 +1,12 @@
 import os.path
-from typing import List, Mapping, Sequence, Any, Optional, Dict
+from typing import List, Mapping, Sequence, Any, Optional, TypeVar
 
-import speedwagon
-from speedwagon.job import _T
 from speedwagon import workflow
 from speedwagon.tasks import Result, TaskBuilder
-from speedwagon.validators import ReportT
-from speedwagon.workflow import UserDataType
 from datetime import date
 from . import file_checker
 
-
-@speedwagon.hookimpl
-def registered_workflows():
-    return {"File Checker": FileCheckerWorkflow}
-
-
-class ContainsRequiredFolders(speedwagon.validators.AbsOutputValidation):
-    name = "Contains Required Folders"
-
-    def investigate(
-        self, candidate: Optional[_T], job_options: Dict[str, UserDataType]
-    ) -> List[ReportT]:
-        return ["this is an error"]
-
+_T = TypeVar("_T")
 
 def contains_required_folders(value, expected_folder) -> bool:
     if not os.path.exists(os.path.join(value, expected_folder)):
