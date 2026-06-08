@@ -18,6 +18,9 @@ license = 'NCSA'
 [project.optional-dependencies]
 gui = ["speedwagon[qt]"]
 
+[project.entry-points.'speedwagon.plugins']
+file_checker_speedwagon = 'speedwagon_contrib.registered_workflows'
+
 [dependency-groups]
 test = ['pytest']
 static-analysis = ['ruff']
@@ -31,8 +34,8 @@ dev = [
 ]
 [tool.setuptools]
 packages = [
-    'speedwagon-contrib',
-    'speedwagon-contrib.file_checker',
+    'speedwagon_contrib',
+    'speedwagon_contrib.file_checker',
 ]
 
 [[tool.uv.index]]
@@ -49,3 +52,8 @@ speedwagon = {index = "uiuc_prescon_python"}
 
 [tool.ruff.lint]
 select = ["E4", "E7", "E9", "F", "PLW", "PLC", "SIM"]
+
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"

@@ -1,6 +1,7 @@
 import os.path
 from typing import List, Mapping, Sequence, Any, Optional, TypeVar
 
+import speedwagon
 from speedwagon import workflow
 from speedwagon.tasks import Result, TaskBuilder
 from datetime import date
