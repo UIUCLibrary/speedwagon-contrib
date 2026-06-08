@@ -1,5 +1,5 @@
 [project]
-name = "speedwagoncontrib"
+name = "speedwagon-contrib"
 requires-python = '>= 3.10'
 dependencies = [
     "speedwagon>=0.4.0b17"
@@ -17,6 +17,17 @@ license = 'NCSA'
 
 [project.optional-dependencies]
 gui = ["speedwagon[qt]"]
+
+[dependency-groups]
+test = ['pytest']
+dev = [
+    {include-group = "test"},
+]
+[tool.setuptools]
+packages = [
+    'speedwagon-contrib',
+    'speedwagon-contrib.file_checker',
+]
 
 [[tool.uv.index]]
 url = "https://pypi.org/simple"
