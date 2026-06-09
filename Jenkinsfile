@@ -1,3 +1,4 @@
+import groovy.json.JsonOutput
 library(
         identifier: 'JenkinsPythonHelperLibrary@2024.12.0',
         retriever: modernSCM(
