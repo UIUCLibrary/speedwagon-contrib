@@ -1,3 +1,10 @@
+## 0.1.1 (2026-06-09)
+
+### Fix
+
+- plugin name is user_contrib_workerflows
+- generate_report is correctly marked as a classmethod
+
 ## 0.1.0 (2026-06-09)
 
 ### Feat
