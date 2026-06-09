@@ -15,7 +15,7 @@ JobArgs = TypedDict(
     {
         "access_directory": str,
         "pres_directory": str,
-        "directories": str,
+        "directories": list[str],
         "report_location": str,
         "file_type": str,
     }

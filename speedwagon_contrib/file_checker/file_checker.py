@@ -3,9 +3,10 @@
 import os
 import sys
 from datetime import date
+from typing import Tuple, TextIO, Dict
 
 
-def main():
+def main() -> None:
     print('This program checks that files are consistent with DS conventions for archival and cataloged collections:'
           '\n\t- All files are either .tifs or .jp2s'
           '\n\t- File names do not contain any spaces'
@@ -40,30 +41,26 @@ def main():
         print(f'{total_errors} discrepancies were discovered. Detailed report saved to {report_location}')
 
 
-def get_inputs():
+def get_inputs() -> Tuple[str, str]:
     directory = input('\nPlease enter the directory (e.g. /Volumes/digitize/project/QAqueue/session) in which your '
                       'files are stored: ')
     file_type = input('\nEnter file type ["A" for Archival or "C" for Cataloged]: ')
     return directory, file_type
 
 
-def get_directories(directory):
+def get_directories(directory: str) -> Tuple[str, list[str], str, str]:
     day = str(date.today())
     report_title = f'{day}_file_checker_report.txt'
 
     directories = []
 
-    access_directory = ''
-    pres_directory = ''
     report_location = ''
+    access_directory = os.path.join(directory, 'access')
+    pres_directory = os.path.join(directory, 'preservation')
     if sys.platform == 'win32':
-        access_directory = f'{directory}\\access'
-        pres_directory = f'{directory}\\preservation'
         desktop_path = os.path.expanduser('~\\Desktop')
         report_location = f'{desktop_path}\\{report_title}'
     if sys.platform == 'darwin':
-        access_directory = f'{directory}/access'
-        pres_directory = f'{directory}/preservation'
         desktop_path = os.path.expanduser('~/Desktop')
         report_location = f'{desktop_path}/{report_title}'
 
@@ -76,14 +73,14 @@ def get_directories(directory):
     return access_directory, directories, pres_directory, report_location
 
 
-def make_report_header(directories, outfile):
+def make_report_header(directories: list[str], outfile: TextIO) -> None:
     outfile.write('\nREPORT FOR THE FOLLOWING DIRECTORIES:')
     for directory in directories:
         outfile.write(f'\n\t{directory}')
     outfile.write('\n')
 
 
-def run_file_type_check(file_type):
+def run_file_type_check(file_type: str) -> str:
     while file_type != 'Archival' and file_type != 'Cataloged':
         print(f'ERROR: Invalid file type. You entered {file_type}.'
               f'\nThis program is ending. Please run it again with correct input.')
@@ -91,7 +88,7 @@ def run_file_type_check(file_type):
     return file_type
 
 
-def check_filenames(directory, file_type):
+def check_filenames(directory: str, file_type: str) -> list[str]:
     error_list = []
 
     file_list = os.listdir(directory)
@@ -113,7 +110,7 @@ def check_filenames(directory, file_type):
     return error_list
 
 
-def create_file_tree(file_list):
+def create_file_tree(file_list: list[str]) -> Tuple[dict[str, list[str]], list[str]]:
     file_tree = {}
     hyphen_errors = []
     for file in file_list:
@@ -130,7 +127,7 @@ def create_file_tree(file_list):
     return file_tree, hyphen_errors
 
 
-def get_basic_errors(file):
+def get_basic_errors(file: str) -> list[str]:
     basic_errors = []
     prefix, suffix = file.split('.')
     if suffix != 'tif' and suffix != 'tiff' and suffix != 'jp2':
@@ -141,7 +138,7 @@ def get_basic_errors(file):
     return basic_errors
 
 
-def get_prefix_errors(prefix, file_number, file_type):
+def get_prefix_errors(prefix: str, file_number: list[str], file_type: str ) -> list[str]:
     prefix_errors = []
     if file_type == 'Archival':
         archival_errors = check_archival_file(file_number, prefix)
@@ -156,7 +153,7 @@ def get_prefix_errors(prefix, file_number, file_type):
     return prefix_errors
 
 
-def check_cat_errors(file_number, prefix):
+def check_cat_errors(file_number: list[str], prefix: str) -> list[str]:
     cat_errors = []
     for number in file_number:
         if len(number) != 8:
@@ -166,7 +163,7 @@ def check_cat_errors(file_number, prefix):
     return cat_errors
 
 
-def check_archival_file(file_number, prefix):
+def check_archival_file(file_number: list[str], prefix: str) -> list[str]:
     archival_errors = []
     for number in file_number:
         if len(number) != 3:
@@ -184,7 +181,7 @@ def check_archival_file(file_number, prefix):
     return archival_errors
 
 
-def check_sequential(file_tree):
+def check_sequential(file_tree: Dict[str, list[str]]) -> list[str]:
     sequence_errors = []
     for prefix in file_tree:
         prefix_sequence_errors = prefix_sequential(file_tree, prefix)
@@ -193,7 +190,7 @@ def check_sequential(file_tree):
     return sequence_errors
 
 
-def prefix_sequential(file_tree, prefix):
+def prefix_sequential(file_tree: Dict[str, list[str]], prefix: str) -> list[str]:
     file_numbers = file_tree[prefix]
     numbers_only_list = []
     prefix_sequence_errors = []
@@ -230,7 +227,7 @@ def validate_files(access_list_trimmed, pres_list_trimmed):
     return matching_error_list
 
 
-def make_file_number_lists(access_directory, pres_directory):
+def make_file_number_lists(access_directory: str, pres_directory: str) -> Tuple[list[str], list[str]]:
     access_list = os.listdir(access_directory)
     access_list_trimmed = []
     for file in access_list:

@@ -887,7 +887,7 @@ qt = [
 
 [[package]]
 name = "speedwagon-contrib"
-version = "2026.7.0"
+version = "0.0.1"
 source = { editable = "." }
 dependencies = [
     { name = "speedwagon" },
