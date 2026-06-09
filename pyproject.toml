@@ -38,6 +38,15 @@ dev = [
     {include-group = "static-analysis"},
     {include-group = "type-checking"},
 ]
+
+[tool.commitizen]
+name = "cz_conventional_commits"
+tag_format = "$version"
+version_scheme = "pep440"
+version_provider = "uv"
+update_changelog_on_bump = true
+major_version_zero = true
+
 [tool.setuptools]
 packages = [
     'speedwagon_contrib',
@@ -58,7 +67,6 @@ speedwagon = {index = "uiuc_prescon_python"}
 
 [tool.ruff.lint]
 select = ["E4", "E7", "E9", "F", "PLW", "PLC", "SIM"]
-
 
 [build-system]
 requires = ["setuptools"]
