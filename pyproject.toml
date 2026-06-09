@@ -19,7 +19,7 @@ license = 'NCSA'
 gui = ["speedwagon[qt]"]
 
 [project.entry-points.'speedwagon.plugins']
-file_checker_speedwagon = 'speedwagon_contrib.registered_workflows'
+user_contrib_workerflows = 'speedwagon_contrib.registered_workflows'
 
 [dependency-groups]
 test = ['pytest']
