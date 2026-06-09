@@ -137,6 +137,7 @@ Created by Anna Smith
             }
         ]
 
+    @classmethod
     def generate_report(cls, results: List[Result], user_args: UserArgs) -> Optional[str]:
         total_errors = len(results[0].data["errors"])
         report_location = user_args["Report File"]
