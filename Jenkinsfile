@@ -49,7 +49,7 @@ def getSupportedPythonVersions(){
             return config['supported_python_versions']
         }
     } catch (e){
-        return ['3.10', '3.11', '3.12', '3.13', '3.14', '3.14t']
+        return ['3.11', '3.12', '3.13', '3.14', '3.14t']
     }
 }
 
