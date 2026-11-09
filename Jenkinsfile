@@ -20,16 +20,19 @@ def getPypiConfig() {
     }
 }
 
-def getSupportedPythonVersions(){
-    try{
-        configFileProvider([configFile(fileId: 'python_config', variable: 'CONFIG_FILE')]) {
-            def config = readJSON( file: CONFIG_FILE)
-            return config['supported_python_versions']
-        }
-    } catch (e){
-        return ['3.11', '3.12', '3.13', '3.14', '3.14t']
+def getConfig(){
+    node(){
+        checkout scm
+        def configCode = load('ci/jenkins/scripts/config.groovy')
+        def config = configCode.getConfig(
+            configId: 'speedwagon_contrib_pipeline_config',
+            defaultConfigFile: 'ci/config.json'
+        )
+        return config
     }
 }
+
+def config = getConfig()
 
 pipeline {
     agent none
@@ -385,33 +388,22 @@ pipeline {
                                                 axes: [
                                                     [
                                                         name: 'PYTHON_VERSION',
-                                                        values: getSupportedPythonVersions()
+                                                        values: config['supporting']['pythonVersions']
                                                     ],
                                                     [
                                                         name: 'OS',
-                                                        values: ['linux','macos', 'windows']
+                                                        values: config['supporting']['os']
                                                     ],
                                                     [
                                                         name: 'ARCHITECTURE',
-                                                        values: ['x86_64', 'arm64']
+                                                        values: config['supporting']['architectures']
                                                     ],
                                                     [
                                                         name: 'PACKAGE_TYPE',
                                                         values: ['wheel', 'sdist'],
                                                     ]
                                                 ],
-                                                excludes: [
-                                                    [
-                                                        [
-                                                            name: 'OS',
-                                                            values: 'windows'
-                                                        ],
-                                                        [
-                                                            name: 'ARCHITECTURE',
-                                                            values: 'arm64',
-                                                        ]
-                                                    ]
-                                                ],
+                                                excludes: config['supporting']['exclusions'],
                                                 when: {entry -> "INCLUDE_${entry.OS}-${entry.ARCHITECTURE}".toUpperCase() && params["INCLUDE_${entry.OS}-${entry.ARCHITECTURE}".toUpperCase()]},
                                                 stages: [
                                                     { entry ->
