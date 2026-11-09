@@ -216,7 +216,7 @@ pipeline {
                                                                     "--label=purpose=ci --label \"JOB_NAME=\$JOB_NAME\" --label \"absoluteUrl=${currentBuild.absoluteUrl}\" --label \"BUILD_NUMBER=${currentBuild.number}\" --mount source=python-tmp-speedwagon-contrib,target=/tmp --tmpfs /.local/share:exec --tmpfs /.local/bin:exec"
                                                                 ){
                                                                     withEnv(["UV_CONFIG_FILE=${utils.createUnixUvConfig()}"]){
-                                                                        sh "uv python install cpython-${version}"
+                                                                        sh(label: 'Installing required Python version if not already installed', script: "uv python find cpython-${version} --quiet 2>/dev/null || uv python install cpython-${version}")
                                                                         sh( label: 'Running Tox',
                                                                             script: "uv run -p ${version} --frozen --only-group=tox-uv --isolated tox run --runner uv-venv-lock-runner -e ${toxEnv} --recreate"
                                                                             )
@@ -289,12 +289,12 @@ pipeline {
                                                                             "TOX_UV_PATH=${env.WORKSPACE}\\venv\\Scripts\\uv.exe",
                                                                             "UV_CONFIG_FILE=${utils.createWindowUVConfig()}"
                                                                         ]){
-                                                                            powershell(script: """python -m venv venv
-                                                                                                  venv\\Scripts\\pip install --disable-pip-version-check uv
-                                                                                                  venv\\Scripts\\uv python update-shell
-                                                                                                  venv\\Scripts\\uv python install cpython-${version}
-                                                                                              """
-                                                                                )
+                                                                            bat(script: """python -m venv venv
+                                                                                           venv\\Scripts\\pip install --disable-pip-version-check uv
+                                                                                           venv\\Scripts\\uv python update-shell
+                                                                                        """
+                                                                            )
+                                                                            bat(label: 'Installing required Python version if not already installed', script: ".\\venv\\Scripts\\uv python find cpython-${version} --quiet 2>nul || .\\venv\\Scripts\\uv python install cpython-${version}")
                                                                             bat(label: 'Running Tox',
                                                                                 script: "venv\\Scripts\\uv run -p ${version} --frozen --only-group=tox-uv --isolated tox run --runner uv-venv-lock-runner -e ${toxEnv} --recreate"
                                                                             )
